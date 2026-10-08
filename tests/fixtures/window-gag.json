@@ -1,0 +1,17 @@
+{
+  "caption": "The cub just wanted a selfie",
+  "title": "Bear Cub Photobombs the Whole Zoo 🐻",
+  "animal": "bear",
+  "cast": {"dad": {"present": true}, "mom": {"present": true}, "cub": {"present": true}, "visitor": {"voice": "woman"}, "kid": {"voice": "girl"}},
+  "shots": [
+    {"dur": 2.4, "camera": "wide", "focus": "cub", "cub": {"spot": "glass", "side": "center", "action": "walk_in"}, "visitors": {"mood": "excited"}, "speech": {"who": "kid", "text": "Mommy, look! A baby bear!"}},
+    {"dur": 2.4, "camera": "close", "focus": "cub", "cub": {"action": "paws_up"}, "visitors": {"mood": "aww"}, "speech": {"who": "visitor", "text": "Oh my gosh, he's waving!"}},
+    {"dur": 2.2, "camera": "follow", "focus": "dad", "dad": {"spot": "glass", "side": "left", "action": "walk"}, "visitors": {"mood": "laugh"}},
+    {"dur": 2.4, "camera": "wide", "focus": "dad", "dad": {"action": "boop"}, "cub": {"action": "look"}, "visitors": {"mood": "laugh"}, "speech": {"who": "visitor", "text": "Dad wants the photo too!"}},
+    {"dur": 2.2, "camera": "follow", "focus": "mom", "mom": {"spot": "glass", "side": "right", "action": "walk"}, "visitors": {"mood": "gasp"}},
+    {"dur": 2.4, "camera": "wide", "focus": "mom", "mom": {"action": "nudge", "target": "dad"}, "visitors": {"mood": "laugh"}, "speech": {"who": "kid", "text": "Mom said move over!"}},
+    {"dur": 2.8, "camera": "wide", "focus": "cub", "cub": {"action": "wave_paw"}, "dad": {"action": "sit"}, "mom": {"action": "sit"}, "visitors": {"mood": "aww"}, "speech": {"who": "visitor", "text": "Family photo!"}, "sfx": "camera_click"}
+  ],
+  "tags": ["zoo", "bear cub", "cute animals"],
+  "description": "A bear family takes over the glass."
+}

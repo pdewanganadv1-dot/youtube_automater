@@ -10,6 +10,7 @@ from ytauto import captions, config, db, story, tts, worker, youtube
 st.set_page_config(page_title="YouTube Automater", page_icon="🎬", layout="wide")
 db.init()
 
+FORMAT_LABEL = {"story": "Narrated story", "cartoon": "Cartoon gags", "window": "Zoo window"}
 STATUS_BADGE = {"rendering": "🟡 Rendering", "needs_review": "🟠 Needs review", "scheduled": "🔵 Scheduled",
                 "published": "🟢 Published", "failed": "🔴 Failed", "rejected": "⚫ Rejected",
                 "needs_attention": "🔴 Needs attention"}
@@ -84,7 +85,8 @@ def page_library():
             elif it.get("thumb_path") and Path(it["thumb_path"]).exists():
                 left.image(it["thumb_path"])
             right.subheader(it.get("title") or it.get("topic") or f"Video {it['id']}")
-            right.write(f"{STATUS_BADGE.get(it['status'], it['status'])} · {it.get('duration') or '—'} s · "
+            right.write(f"{STATUS_BADGE.get(it['status'], it['status'])} · {FORMAT_LABEL.get(it.get('format'), '')} · "
+                        f"{it.get('duration') or '—'} s · "
                         f"made {fmt_time(it['created_at'])}")
             if it.get("publish_at") and it.get("publish_status") == "scheduled":
                 right.write(f"Publishes {fmt_time(it['publish_at'])}")
@@ -112,9 +114,13 @@ def page_library():
                 if st.button("Rewrite", key=f"rw{it['id']}"):
                     db.enqueue_job("regenerate", {"id": it["id"], "notes": notes})
                     st.toast("Rewrite queued")
-            if isinstance(it.get("script"), dict) and it["script"].get("scenes"):
+            script = it.get("script") if isinstance(it.get("script"), dict) else {}
+            if script.get("scenes"):
                 with right.expander("✎ Edit scenes and re-render"):
                     edit_story(it)
+            elif script.get("shots"):
+                with right.expander("✎ Edit lines and sounds, then re-render"):
+                    edit_gag(it)
 
 
 def edit_story(it):
@@ -132,6 +138,47 @@ def edit_story(it):
                 sc[field] = col.selectbox(field.title(), opts, index=opts.index(sc[field]), key=f"{field}{it['id']}_{i}")
         if st.form_submit_button("Re-render"):
             db.enqueue_job("rerender", {"id": it["id"], "story": s})
+            st.toast("Re-render queued for the worker")
+
+
+def edit_gag(it):
+    from ytauto import gags
+    g = json.loads(json.dumps(it["script"]))
+    window = g["format"] == "window"
+    with st.form(f"gag{it['id']}"):
+        g["title"] = st.text_input("Title", g["title"])
+        g["caption"] = st.text_input("Caption at the top", g.get("caption", ""), max_chars=45)
+        cols = st.columns(3)
+        g["voices"] = cols[0].toggle("Voices", value=g.get("voices", True), key=f"gv{it['id']}")
+        if window:
+            g["animal"] = cols[1].selectbox("Animal family", gags.WINDOW["species"],
+                                            index=gags.WINDOW["species"].index(g["animal"]), key=f"ga{it['id']}")
+            vv = g.setdefault("visitor_voices", {})
+            vv["kid"] = cols[2].selectbox("Kid's voice", ["kid", "girl", "boy"],
+                                          index=["kid", "girl", "boy"].index(vv.get("kid", "kid")), key=f"gk{it['id']}")
+        else:
+            g["music"] = cols[1].selectbox("Music", gags.VOCAB["music"], index=gags.VOCAB["music"].index(g["music"]),
+                                           key=f"gm{it['id']}")
+            for role, col in (("hero", cols[2]), ("other", cols[2])):
+                c = g["cast"][role]
+                c["species"] = col.selectbox(f"{role.title()} species", gags.VOCAB["species"],
+                                             index=gags.VOCAB["species"].index(c["species"]), key=f"gs{role}{it['id']}")
+                c["voice"] = col.selectbox(f"{role.title()} voice", gags.VOCAB["voice"],
+                                           index=gags.VOCAB["voice"].index(c["voice"]), key=f"gvo{role}{it['id']}")
+        speakers = gags.WINDOW_SPEAKERS if window else ["hero", "other"]
+        sfx = gags.WINDOW["sfx"] if window else gags.VOCAB["sfx"]
+        for i, sh in enumerate(g["shots"]):
+            st.markdown(f"**{'Beat' if window else 'Shot'} {i + 1}** · {sh['dur']} s")
+            row = st.columns([1, 3, 1, 2] if not window else [1, 4, 1])
+            sp = sh.get("speech") or {"who": speakers[0], "text": ""}
+            who = row[0].selectbox("Speaker", speakers, index=speakers.index(sp["who"]), key=f"w{it['id']}_{i}")
+            line = row[1].text_input("Line", sp["text"], key=f"l{it['id']}_{i}")
+            sh["speech"] = {"who": who, "text": line} if line.strip() else None
+            sh["sfx"] = row[2].selectbox("Sound", sfx, index=sfx.index(sh.get("sfx", "none")), key=f"x{it['id']}_{i}")
+            if not window and sh["prop"]["kind"] != "none":
+                sh["prop"]["text"] = row[3].text_input("Sign / screen text", sh["prop"]["text"], key=f"p{it['id']}_{i}")
+        if st.form_submit_button("Re-render"):
+            db.enqueue_job("rerender", {"id": it["id"], "story": g})
             st.toast("Re-render queued for the worker")
 
 
@@ -176,15 +223,21 @@ def page_queue():
 def page_settings():
     st.header("Series & settings")
     fmt = st.selectbox("Video style", ["story", "cartoon", "window"],
-                       format_func={"story": "Narrated story", "cartoon": "Cartoon gags (not built yet)",
-                                    "window": "Zoo window (not built yet)"}.get,
+                       format_func=FORMAT_LABEL.get,
                        index=["story", "cartoon", "window"].index(db.get_setting("cartoon_format", "story")))
-    if fmt != "story":
-        st.warning("Only Narrated story is built in this repo so far; the other two styles are specified in "
-                   "HANDOVER.md §3a–3b. Videos will be made as narrated stories until they're added.")
-    st.subheader("Story series")
-    series = series_controls(db.get_json_setting("story_series", {}), "series")
-    target = st.slider("Video length (seconds)", 25, 90, int(db.get_setting("cartoon_target_seconds", "50")))
+    series = db.get_json_setting("story_series", {})
+    if fmt == "story":
+        st.subheader("Story series")
+        series = series_controls(series, "series")
+    elif fmt == "cartoon":
+        st.caption("Crude 2D characters on cream paper, fast cuts, voiced speech bubbles, cartoon sound effects. "
+                   "Max 60 s.")
+    else:
+        st.caption("One hand-held shot through zoo glass: an animal family acts out a tiny drama while visitors "
+                   "react. Max 45 s.")
+    limits = {"story": (25, 90), "cartoon": (12, 60), "window": (12, 45)}[fmt]
+    current = min(max(int(db.get_setting("cartoon_target_seconds", "50")), limits[0]), limits[1])
+    target = st.slider("Video length (seconds)", limits[0], limits[1], current)
     kids = st.toggle("Made for kids", value=db.get_setting("made_for_kids") == "true")
     auto = st.toggle("Auto-approve (schedule without review)", value=db.get_setting("approval_required") == "false")
     notes = st.text_area("Style notes (added to every prompt as EDITOR NOTES)",

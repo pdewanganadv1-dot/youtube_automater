@@ -4,7 +4,7 @@ import random
 import threading
 from datetime import datetime, timedelta, timezone
 
-from . import ai, config, db, reference, story, youtube
+from . import ai, animate, config, db, gags, reference, story, youtube
 
 log = logging.getLogger(__name__)
 _running = threading.Lock()
@@ -49,26 +49,31 @@ def busy():
     return _running.locked()
 
 
-def generate(topic=None, source="manual", notes_extra="", queue_item=None, series_override=None):
+def generate(topic=None, source="manual", notes_extra="", queue_item=None, series_override=None, format_override=None):
     """Make one video. Returns the production id. Only one generation runs at a time."""
     if not _running.acquire(blocking=False):
         raise RuntimeError("A video is already being made")
     pid = None
     try:
         s = settings_snapshot()
-        if s["format"] != "story":
-            log.warning("Format %r is not built yet in this repo; making a narrated story", s["format"])
+        fmt = format_override or s["format"]
+        if fmt not in ("story", "cartoon", "window"):
+            fmt = "story"
         series = series_override or s["series"]
         topic = (topic or "").strip() or pick_topic()
         notes = "\n".join(n for n in (s["notes"], notes_extra) if n)
-        pid = db.create_production(topic=topic, format="story", status="rendering", source=source,
+        pid = db.create_production(topic=topic, format=fmt, status="rendering", source=source,
                                    made_for_kids=int(s["kids"]))
         if queue_item:
             db.update_queue_item(queue_item, status="started", job_id=pid)
         profile = (db.active_profile() or {}).get("profile")
-        st = story.write_story(topic, series, avoid_titles=(profile or {}).get("titles", []),
-                               recent=db.recent_titles(25), notes=notes, target_seconds=s["target"],
-                               kids=s["kids"], reference=profile)
+        common = dict(avoid_titles=(profile or {}).get("titles", []), recent=db.recent_titles(25), notes=notes,
+                      kids=s["kids"], reference=profile)
+        if fmt == "story":
+            st = story.write_story(topic, series, target_seconds=s["target"], **common)
+        else:
+            st = gags.write_gag(fmt, topic, target_seconds=min(s["target"], 60 if fmt == "cartoon" else 45),
+                                market=config.TARGET_AUDIENCE, **common)
         ok, clash = reference.check_originality(st["title"], profile)
         if not ok:
             log.warning("Title %r is close to reference title %r", st["title"], clash)
@@ -90,7 +95,10 @@ def generate(topic=None, source="manual", notes_extra="", queue_item=None, serie
 
 def _render_and_review(pid, st, kids, auto_approve):
     db.update_production(pid, status="rendering")
-    out = story.render(st, f"short_{pid}", made_for_kids=kids)
+    if st.get("format") in ("cartoon", "window"):
+        out = animate.render(st, f"short_{pid}")
+    else:
+        out = story.render(st, f"short_{pid}", made_for_kids=kids)
     desc = st.get("description", "")
     if out["credit"]:
         desc = f"{desc}\n\n{out['credit']}".strip()
@@ -113,8 +121,11 @@ def rerender(pid, edited_story):
         raise RuntimeError("A video is already being made")
     try:
         p = db.get_production(pid)
-        st = story.normalize_story(edited_story) | {"series": story.normalize_series(edited_story.get("series")),
-                                                     "topic": p["topic"]}
+        if edited_story.get("format") in ("cartoon", "window"):
+            st = gags.normalize({**edited_story, "topic": p["topic"]})
+        else:
+            st = story.normalize_story(edited_story) | {"series": story.normalize_series(edited_story.get("series")),
+                                                         "topic": p["topic"]}
         db.cancel_schedule(pid)
         db.update_production(pid, title=st["title"], script=st)
         _render_and_review(pid, st, bool(p["made_for_kids"]), auto_approve=False)
@@ -130,9 +141,12 @@ def regenerate(pid, notes):
     p = db.get_production(pid)
     db.cancel_schedule(pid)
     db.update_production(pid, status="rejected")
-    extra = (notes or "") + "\nThe previous version was rejected — make a clearly different story."
-    series = (p.get("script") or {}).get("series") if isinstance(p.get("script"), dict) else None
-    return generate(p["topic"], source="regenerate", notes_extra=extra.strip(), series_override=series)
+    script = p.get("script") if isinstance(p.get("script"), dict) else {}
+    fmt = script.get("format") or p.get("format") or None
+    kind = "story" if fmt in (None, "story") else "joke"
+    extra = (notes or "") + f"\nThe previous version was rejected — make a clearly different {kind}."
+    return generate(p["topic"], source="regenerate", notes_extra=extra.strip(), series_override=script.get("series"),
+                    format_override=fmt)
 
 
 def reject(pid):

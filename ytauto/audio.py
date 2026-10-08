@@ -164,7 +164,91 @@ def sfx(name, rng=None):
         return np.sin(2 * np.pi * np.cumsum(f) / SR) * _env(len(t), 0.01, 0.1) * 0.5
     if name == "glass_tap":
         return bell(2200, 0.25) * 0.5
+    if name == "rumble":
+        n = np.convolve(rng.uniform(-1, 1, int(0.9 * SR)), np.ones(200) / 200, mode="same")
+        return n * 6 * _env(len(n), 0.05, 0.3)
+    if name == "sting":
+        return sum(bell(midi_hz(m), 0.9) for m in (72, 75, 78)) * 0.5
+    if name == "honk":
+        t = _t(0.35)
+        return np.sign(np.sin(2 * np.pi * 330 * t)) * 0.3 * _env(len(t), 0.01, 0.05)
+    if name in ("beep", "error"):
+        t = _t(0.18 if name == "beep" else 0.4)
+        f = 1000 if name == "beep" else 180
+        return np.sign(np.sin(2 * np.pi * f * t)) * 0.25 * _env(len(t), 0.005, 0.03)
+    if name == "tick":
+        return noise_burst(0.03, 120, rng) * 0.6
+    if name == "drumroll":
+        out = np.zeros(int(1.2 * SR))
+        for k in range(36):
+            _add(out, noise_burst(0.05, 50, rng) * (0.3 + 0.5 * k / 36), k / 30)
+        return out
+    if name == "crash":
+        return noise_burst(1.2, 3.5, rng) * 0.8
+    if name == "giggle":
+        out = np.zeros(int(0.8 * SR))
+        for k in range(5):
+            t = _t(0.1)
+            _add(out, np.sin(2 * np.pi * (700 + 60 * k) * t) * np.sin(np.pi * t / 0.1) * 0.4, k * 0.14)
+        return out
+    if name == "printer":
+        out = np.zeros(int(1.0 * SR))
+        for k in range(12):
+            _add(out, noise_burst(0.06, 40, rng) * 0.35, k * 0.08)
+        return out
+    if name == "camera_click":
+        return noise_burst(0.05, 90, rng) * 0.7
+    if name in ("growl", "roar_soft"):
+        d = 0.8 if name == "growl" else 1.3
+        t = _t(d)
+        base = np.sin(2 * np.pi * (85 if name == "growl" else 120) * t) * (0.6 + 0.4 * np.sin(2 * np.pi * 23 * t))
+        return (base + 0.3 * rng.uniform(-1, 1, len(t))) * _env(len(t), 0.1, 0.3) * 0.6
+    if name == "yawn":
+        t = _t(1.1)
+        f = 380 - 180 * t / 1.1
+        return np.sin(2 * np.pi * np.cumsum(f) / SR) * np.sin(np.pi * t / 1.1) * 0.3
+    if name == "cub_squeak":
+        t = _t(0.22)
+        f = 900 + 500 * np.sin(np.pi * t / 0.22)
+        return np.sin(2 * np.pi * np.cumsum(f) / SR) * np.sin(np.pi * t / 0.22) * 0.35
+    if name in ("crowd_laugh", "crowd_aww", "crowd_gasp"):
+        d = {"crowd_laugh": 1.4, "crowd_aww": 1.2, "crowd_gasp": 0.6}[name]
+        out = np.zeros(int(d * SR))
+        for k in range(7):
+            f0 = rng.uniform(180, 320)
+            t = _t(d * 0.9)
+            if name == "crowd_aww":
+                f = f0 * (1.3 - 0.3 * t / t[-1])
+                v = np.sin(np.pi * t / t[-1])
+            elif name == "crowd_laugh":
+                f = np.full(len(t), f0 * 1.2)
+                v = np.clip(np.sin(2 * np.pi * rng.uniform(5, 7) * t), 0, 1) * np.exp(-t)
+            else:
+                f = f0 * (1 + 0.4 * t / t[-1])
+                v = np.exp(-6 * t)
+            _add(out, np.sin(2 * np.pi * np.cumsum(f) / SR) * v * 0.08, rng.uniform(0, d * 0.1))
+        return out + 0.05 * noise_burst(d, 2, rng)
     return np.zeros(1)
+
+
+def ambience(kind, duration, rng):
+    """Zoo ambience: wind, crowd murmur and bird chirps."""
+    n = int(duration * SR)
+    if kind != "zoo":
+        return np.zeros(n)
+    wind = np.convolve(rng.uniform(-1, 1, n), np.ones(400) / 400, mode="same") * 2.5
+    murmur = np.zeros(n)
+    t = np.arange(n) / SR
+    for _ in range(6):
+        f = rng.uniform(150, 260)
+        murmur += np.sin(2 * np.pi * f * t + rng.uniform(0, 6)) * (0.5 + 0.5 * np.sin(2 * np.pi * rng.uniform(0.3, 1.2) * t)) * 0.02
+    birds = np.zeros(n)
+    for _ in range(int(duration / 2.5)):
+        tt = _t(0.12)
+        chirp = np.sin(2 * np.pi * np.cumsum(np.linspace(2600, 3800, len(tt))) / SR) * np.sin(np.pi * tt / 0.12) * 0.08
+        for k in range(rng.integers(1, 4)):
+            _add(birds, chirp, rng.uniform(0, duration) + k * 0.16)
+    return wind * 0.25 + murmur + birds
 
 
 def duck_envelope(voice, attack=0.08, release=0.25, floor=0.35, threshold=0.02):
@@ -183,8 +267,8 @@ def duck_envelope(voice, attack=0.08, release=0.25, floor=0.35, threshold=0.02):
     return np.repeat(env, block)[: len(voice)]
 
 
-def render_soundtrack(duration, music_style="mystery", cues=(), voices=(), seed="x", music_gain=0.8):
-    """cues: [(sfx_name, seconds)], voices: [(samples, at_seconds)]."""
+def render_soundtrack(duration, music_style="mystery", cues=(), voices=(), seed="x", music_gain=0.8, amb=None):
+    """cues: [(sfx_name, seconds)], voices: [(samples, at_seconds)], amb: None | "zoo"."""
     n = int(duration * SR)
     rng = np.random.default_rng(int(hashlib.sha1(seed.encode()).hexdigest()[:8], 16))
     music = music_bed(music_style, duration, seed) if music_style != "none" else np.zeros(n)
@@ -195,7 +279,8 @@ def render_soundtrack(duration, music_style="mystery", cues=(), voices=(), seed=
     for samples, at in voices:
         _add(vox, samples, at)
     duck = duck_envelope(vox)
-    mix = music * 0.55 * music_gain * duck + fx * (0.6 + 0.4 * duck) + vox * 1.1
+    amb_track = ambience(amb, duration, rng) if amb else 0
+    mix = music * 0.55 * music_gain * duck + amb_track * (0.75 + 0.25 * duck) + fx * (0.6 + 0.4 * duck) + vox * 1.1
     mix = np.tanh(1.2 * mix)
     peak = np.abs(mix).max(initial=0)
     return mix / peak * 0.92 if peak > 0 else mix

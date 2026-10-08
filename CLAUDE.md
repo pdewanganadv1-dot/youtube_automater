@@ -8,6 +8,8 @@ Full product spec (from the original Node "Lumen/AgentTube" app): `HANDOVER.md`.
 - `app.py` — Streamlit UI only; buttons enqueue jobs via `db.enqueue_job`.
 - `ytauto/pipeline.py` — topic → `story.write_story` → `story.render` → review/auto-approve → `publish_schedule`.
 - `ytauto/story.py` — narrated-story format (prompt is a verbatim port; keep it in sync with HANDOVER.md §3c).
+- `ytauto/gags.py` — cartoon + zoo-window prompts (verbatim ports), validation, voice timing, sound cues.
+  `animate.py` renders them frame by frame with skia: `cartoon_engine.py`, `window_engine.py`, helpers in `draw.py`.
 - `ytauto/audio.py` (numpy synth + ducking mixer), `tts.py` (Piper/Gemini), `captions.py` (ASS styles), `illustrator.py` (fallback art), `youtube.py`, `reference.py`, `db.py` (SQLite in `data/`).
 
 ## Run locally (Mac)
@@ -29,5 +31,5 @@ Keep the Mac awake for 24/7 runs: `caffeinate -i ./scripts/start.sh`.
 - Don't kill processes with `pkill -f` patterns that can match your own shell.
 
 ## Not built yet (next work)
-- Cartoon gags and Zoo window formats (HANDOVER.md §3a–3b). Settings let the user pick them, but the pipeline falls back to narrated story.
+- Zoo window's ground line sits at y=1640 (spec said 1830) so glass animals aren't hidden by visitors.
 - "Improve from a reference video" flow, per-queue-item format/series, Agents Office.

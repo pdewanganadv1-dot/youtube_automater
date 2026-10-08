@@ -84,46 +84,98 @@ def _gemini(text, voice, delivery):
     raise RuntimeError("Gemini TTS failed")
 
 
-def narrate(lines, narrator="john", music="mystery", language="en", seed=""):
-    """Return (list of sample arrays or None per line, credit text). Never raises: missing voices -> None."""
+# character voices for cartoon/window formats: voice -> (piper group, piper pitch, piper length,
+#                                                       gemini voice, gemini pitch)
+CHARACTER_VOICES = {
+    "kid": ("high", 1.12, 1.0, "Leda", 1.18), "girl": ("high", 1.08, 1.0, "Leda", 1.26),
+    "boy": ("mid", 1.18, 1.0, "Puck", 1.2), "woman": ("high", 1.0, 1.0, "Kore", 1.06),
+    "man": ("low", 1.0, 1.0, "Fenrir", 1.02), "grandpa": ("low", 0.92, 1.15, "Charon", 0.93),
+    "grandma": ("mid", 0.95, 1.12, "Gacrux", 0.97), "robot": ("mid", 1.0, 1.05, "Iapetus", 1.0),
+    "squeaky": ("high", 1.38, 0.95, "Puck", 1.42),
+}
+MOOD_SPEED = {"angry": 0.9, "shock": 0.88, "scream": 0.88, "sad": 1.15, "cry": 1.18, "excited": 0.92,
+              "laugh": 0.95, "gasp": 0.9}
+MOOD_DELIVERY = {"angry": "angrily, in a funny cartoon voice", "shock": "in total shock", "sad": "sadly",
+                 "cry": "while sobbing", "smug": "smugly", "grin": "cheekily", "smile": "cheerfully",
+                 "scream": "screaming", "excited": "excitedly", "laugh": "while laughing", "aww": "adoringly",
+                 "gasp": "with a surprised gasp"}
+CHARACTER_CREDIT = "Character voices: Piper TTS with LibriTTS-R voices (CC BY 4.0)."
+
+
+def speak(items, language="en"):
+    """items: [{text, key, piper: (group, pitch, length), gemini: (voice, pitch, delivery), robot}].
+    Returns (samples or None per item, provider name or None). Never raises."""
     prov = provider(language)
-    if not prov:
-        return [None] * len(lines), ""
-    gem_voice, gem_pitch, group, pitch, length = NARRATORS.get(narrator, NARRATORS["john"])
-    delivery, speed = DELIVERY.get(music, ("as a warm, engaging storyteller", 1.0))
-    out, failures = [], 0
+    if not prov or not items:
+        return [None] * len(items), None
+    out = []
     if prov == "piper":
-        speaker = _speaker_id(group, f"{seed}|{narrator}")
-        todo = []
-        for text in lines:
-            key = hashlib.sha1(f"piper|{speaker}|{length * speed}|{text}".encode()).hexdigest()
-            path = CACHE / f"{key}.wav"
+        todo, paths = [], []
+        for it in items:
+            group, pitch, length = it["piper"]
+            speaker = _speaker_id(group, it["key"])
+            h = hashlib.sha1(f"piper|{speaker}|{length}|{it['text']}".encode()).hexdigest()
+            path = CACHE / f"{h}.wav"
             if not path.exists():
-                todo.append({"text": text, "speaker": speaker, "length_scale": length * speed, "out": str(path)})
-            out.append(path)
+                todo.append({"text": it["text"], "speaker": speaker, "length_scale": length, "out": str(path)})
+            paths.append(path)
         if todo:
             try:
                 _piper_batch(todo)
             except Exception as e:  # fall back to silence rather than failing the video
                 log.warning("Piper synthesis failed: %s", e)
-                return [None] * len(lines), ""
-        return [audio.pcm_to_voice(audio.read_wav(p), audio.SR, pitch) if p.exists() else None for p in out], \
-            PIPER_CREDIT
-    for text in lines:
-        key = hashlib.sha1(f"gemini|{gem_voice}|{delivery}|{text}".encode()).hexdigest()
-        path = CACHE / f"{key}.npy"
-        if path.exists():
-            out.append(audio.pcm_to_voice(np.load(path), 24000, gem_pitch * speed))
-            continue
-        if failures >= 2:
-            out.append(None)
-            continue
-        try:
-            pcm = _gemini(text, gem_voice, delivery)
-            np.save(path, pcm)
-            out.append(audio.pcm_to_voice(pcm, 24000, gem_pitch * speed))
-        except Exception as e:
-            failures += 1
-            log.warning("Gemini TTS failed for a line: %s", e)
-            out.append(None)
-    return out, ("Narration: Gemini TTS." if any(v is not None for v in out) else "")
+                return [None] * len(items), None
+        for it, path in zip(items, paths):
+            out.append(audio.pcm_to_voice(audio.read_wav(path), audio.SR, it["piper"][1]) if path.exists() else None)
+    else:
+        failures = 0
+        for it in items:
+            voice, pitch, delivery = it["gemini"]
+            h = hashlib.sha1(f"gemini|{voice}|{delivery}|{it['text']}".encode()).hexdigest()
+            path = CACHE / f"{h}.npy"
+            if path.exists():
+                out.append(audio.pcm_to_voice(np.load(path), 24000, pitch))
+                continue
+            if failures >= 2:  # stop voicing after 2 failed lines (free tier is ~10 a day)
+                out.append(None)
+                continue
+            try:
+                pcm = _gemini(it["text"], voice, delivery)
+                np.save(path, pcm)
+                out.append(audio.pcm_to_voice(pcm, 24000, pitch))
+            except Exception as e:
+                failures += 1
+                log.warning("Gemini TTS failed for a line: %s", e)
+                out.append(None)
+    for i, it in enumerate(items):
+        if it.get("robot") and out[i] is not None:  # +55 Hz amplitude modulation
+            t = np.arange(len(out[i])) / audio.SR
+            out[i] = out[i] * (0.6 + 0.4 * np.sin(2 * np.pi * 55 * t))
+    return out, prov
+
+
+def narrate(lines, narrator="john", music="mystery", language="en", seed=""):
+    """Narrator voice for every line. Returns (samples or None per line, credit text)."""
+    gem_voice, gem_pitch, group, pitch, length = NARRATORS.get(narrator, NARRATORS["john"])
+    delivery, speed = DELIVERY.get(music, ("as a warm, engaging storyteller", 1.0))
+    items = [{"text": t, "key": f"{seed}|{narrator}", "piper": (group, pitch, length * speed),
+              "gemini": (gem_voice, gem_pitch * speed, delivery)} for t in lines]
+    out, prov = speak(items, language)
+    if not any(v is not None for v in out):
+        return out, ""
+    return out, PIPER_CREDIT if prov == "piper" else "Narration: Gemini TTS."
+
+
+def character_lines(lines, seed=""):
+    """lines: [(text, voice, mood, role)]. Each role gets a distinct, stable speaker. Returns (samples, credit)."""
+    items = []
+    for text, voice, mood, role in lines:
+        group, pitch, length, gem, gem_pitch = CHARACTER_VOICES.get(voice, CHARACTER_VOICES["man"])
+        sp = MOOD_SPEED.get(mood, 1.0)
+        items.append({"text": text, "key": f"{seed}|{role}", "piper": (group, pitch, length * sp),
+                      "gemini": (gem, gem_pitch, MOOD_DELIVERY.get(mood, "in a funny cartoon voice")),
+                      "robot": voice == "robot"})
+    out, prov = speak(items)
+    if not any(v is not None for v in out):
+        return out, ""
+    return out, CHARACTER_CREDIT if prov == "piper" else "Character voices: Gemini TTS."

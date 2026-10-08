@@ -1,9 +1,12 @@
 # YouTube Automater
 
 A self-running YouTube **Shorts** factory with a Streamlit dashboard. It takes topics from a queue (or picks
-its own from a reference channel's topic gaps), writes a narrated story with AI, illustrates each scene,
-adds narration, music, sound effects and word-by-word captions, renders a 1080×1920 MP4, and uploads it
-on a schedule.
+its own from a reference channel's topic gaps), writes the video with AI in one of three styles, renders a
+1080×1920 MP4 with voices, music and sound effects, and uploads it on a schedule:
+
+- **Narrated story**: AI pictures per scene, a narrator, word-by-word captions.
+- **Cartoon gags**: crude 2D characters on cream paper with voiced speech bubbles.
+- **Zoo window**: an animal family at the enclosure glass while visitors react.
 
 This is a Python rebuild of the "Lumen/AgentTube" Node app. The full spec it was built from is in
 [HANDOVER.md](HANDOVER.md).
@@ -24,7 +27,10 @@ This is a Python rebuild of the "Lumen/AgentTube" Node app. The full spec it was
 | Review flow: approve, reject, publish now, edit scenes → re-render, rewrite with AI | ✅ |
 | Reference channel analysis (format, topic gaps, originality check) | ✅ |
 | YouTube OAuth + upload (private while the Google app is unverified) | ✅ |
-| **Cartoon gags** and **Zoo window** formats | ⏳ next (spec in HANDOVER.md §3a–3b) |
+| **Cartoon gags** format: 5 species, 10 moods, 18 actions, 11 props, voiced speech bubbles, punch-in cuts, line boil | ✅ |
+| **Zoo window** format: 5 animal families, depth model, 19 actions, visitors reacting, glass fog and paw prints, hand-held camera | ✅ |
+| Per-character voices (9 voice types) and synthesized sound effects for every action | ✅ |
+| Edit lines, speakers and sounds in the dashboard, then re-render | ✅ |
 | "Improve from a reference video" flow, Agents Office | ⏳ planned |
 
 ## How it runs
@@ -41,7 +47,8 @@ Two processes share one SQLite database in `data/`:
 
 ## Setup (Mac or Linux)
 
-You need Python 3.10+ and ffmpeg (`brew install ffmpeg` on a Mac).
+You need Python 3.10+ and ffmpeg (`brew install ffmpeg` on a Mac). On a Linux server also run
+`sudo apt install libegl1` (needed by skia, the cartoon drawing library).
 
 ```bash
 git clone https://github.com/pdewanganadv1-dot/youtube_automater.git

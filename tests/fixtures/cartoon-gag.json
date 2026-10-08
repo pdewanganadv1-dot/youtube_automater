@@ -1,0 +1,17 @@
+{
+  "caption": "When the vending machine eats your coins",
+  "title": "The Vending Machine Always Wins 😤",
+  "cast": {"hero": {"species": "human", "look": "round", "voice": "boy"}, "other": {"species": "cat", "look": "tall", "voice": "squeaky"}},
+  "shots": [
+    {"dur": 2.2, "frame": "wide", "focus": "hero", "hero": {"mood": "smile", "action": "walk_in", "item": "none"}, "other": {"present": false}, "prop": {"kind": "kiosk", "text": "SNACKS 1$"}, "speech": {"who": "hero", "text": "Finally, snack time!"}, "sfx": "none"},
+    {"dur": 2.0, "frame": "closeup", "focus": "prop", "hero": {"mood": "neutral", "action": "idle"}, "other": {"present": false}, "prop": {"kind": "kiosk", "text": "ERROR", "flash": true}, "sfx": "error"},
+    {"dur": 2.0, "frame": "closeup", "focus": "hero", "hero": {"mood": "twitch", "action": "idle"}, "other": {"present": false}, "prop": {"kind": "kiosk", "text": "ERROR"}, "speech": {"who": "hero", "text": "No. No no no."}, "sfx": "none"},
+    {"dur": 2.4, "frame": "medium", "focus": "hero", "hero": {"mood": "angry", "action": "shake"}, "other": {"present": false}, "prop": {"kind": "kiosk", "text": "ERROR"}, "sfx": "rumble"},
+    {"dur": 2.2, "frame": "wide", "focus": "both", "hero": {"mood": "shock", "action": "idle"}, "other": {"present": true, "mood": "smug", "action": "walk_in"}, "prop": {"kind": "kiosk", "text": "ERROR"}, "speech": {"who": "other", "text": "Allow me."}, "sfx": "none"},
+    {"dur": 2.0, "frame": "closeup", "focus": "prop", "hero": {"mood": "shock", "action": "idle"}, "other": {"present": true, "mood": "smug", "action": "point"}, "prop": {"kind": "kiosk", "text": "FREE CHIPS!", "flash": true}, "sfx": "tada"},
+    {"dur": 2.8, "frame": "wide", "focus": "hero", "hero": {"mood": "cry", "action": "faint", "item": "none"}, "other": {"present": true, "mood": "grin", "action": "dance"}, "prop": {"kind": "kiosk", "text": "FREE CHIPS!"}, "crowd": true, "sfx": "wahwah"}
+  ],
+  "music": "silly",
+  "tags": ["funny", "cartoon", "vending machine"],
+  "description": "The cat always knows the trick."
+}
