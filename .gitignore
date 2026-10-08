@@ -1,0 +1,14 @@
+# secrets
+.env
+config/
+client_secret*.json
+*token*.json
+# runtime data and caches
+data/
+.voices/
+__pycache__/
+*.pyc
+.pytest_cache/
+.streamlit/secrets.toml
+# downloaded fonts (scripts/fetch_fonts.py)
+assets/fonts/*.ttf

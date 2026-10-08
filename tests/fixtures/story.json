@@ -1,0 +1,14 @@
+{
+  "title": "The Lighthouse Keeper's Last Visitor 🕯️",
+  "character": "an old lighthouse keeper, thin, grey beard, yellow raincoat",
+  "scenes": [
+    {"narration": "Every night for forty years, someone knocked on the lighthouse door at midnight.", "image_prompt": "a lonely lighthouse on a cliff at night", "setting": "sea", "figure": "none", "time": "night", "mood": "eerie"},
+    {"narration": "Old Tomas never opened it. His father had warned him, and his grandfather before that.", "image_prompt": "an old keeper by a window", "setting": "room", "figure": "person", "time": "night", "mood": "tense"},
+    {"narration": "But tonight the storm was louder than ever, and the knocking sounded like a child crying.", "image_prompt": "storm over the sea", "setting": "sea", "figure": "none", "time": "storm", "mood": "tense"},
+    {"narration": "He lifted the latch. Rain swept in. The doorstep was empty, except for small wet footprints.", "image_prompt": "wet footprints on a doorstep", "setting": "house", "figure": "none", "time": "storm", "mood": "eerie"},
+    {"narration": "The footprints led inside. Up the stairs. Toward the lamp room, where he had left his lantern burning.", "image_prompt": "spiral stairs", "setting": "room", "figure": "child", "time": "night", "mood": "eerie"},
+    {"narration": "In the morning the lamp was dark, and two sets of footprints walked out to sea.", "image_prompt": "footprints into the sea at dawn", "setting": "sea", "figure": "none", "time": "dawn", "mood": "sad"}
+  ],
+  "tags": ["scary stories", "lighthouse", "horror shorts"],
+  "description": "A lighthouse keeper finally opens the door."
+}
