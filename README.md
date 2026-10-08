@@ -8,6 +8,10 @@ on a schedule.
 This is a Python rebuild of the "Lumen/AgentTube" Node app. The full spec it was built from is in
 [HANDOVER.md](HANDOVER.md).
 
+| Library | Queue | Settings | Status |
+|---|---|---|---|
+| ![Library](docs/screenshots/1-library.png) | ![Queue](docs/screenshots/2-queue.png) | ![Settings](docs/screenshots/3-settings.png) | ![Status](docs/screenshots/4-status.png) |
+
 ## What's built
 
 | Part | Status |
