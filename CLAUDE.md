@@ -30,6 +30,8 @@ Keep the Mac awake for 24/7 runs: `caffeinate -i ./scripts/start.sh`.
 - Tests: `pytest -q`; `RENDER=1 pytest -q` adds a real MP4 render.
 - Don't kill processes with `pkill -f` patterns that can match your own shell.
 
-## Not built yet (next work)
+## Deliberate differences from HANDOVER.md
 - Zoo window's ground line sits at y=1640 (spec said 1830) so glass animals aren't hidden by visitors.
+
+## Not built yet (next work)
 - "Improve from a reference video" flow, per-queue-item format/series, Agents Office.
